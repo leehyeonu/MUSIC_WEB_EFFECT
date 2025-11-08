@@ -1,0 +1,217 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Lyric Sync – Mobile</title>
+<style>
+  :root{
+    --bg:#07070b; --fg:#eef4ff; --neon:#00f5ff; --accent:#6aa8ff;
+  }
+  html,body{height:100%; background: radial-gradient(60% 80% at 50% 20%, #0f1320 0%, #090b12 55%, #07070b 100%); color:var(--fg); margin:0; font-family: Inter, Pretendard, system-ui, -apple-system, Segoe UI, Roboto;}
+  .stage{position:relative; height:100%; overflow:hidden;}
+  /* Santa (emoji 기반, 좌측 반복 애니메이션) */
+  .santa{
+    position:absolute; left:10px; bottom:22%;
+    font-size: clamp(42px, 10vw, 72px);
+    filter: drop-shadow(0 6px 16px rgba(255,0,64,.35));
+    animation: bob 2.2s ease-in-out infinite, sway 4.8s ease-in-out infinite;
+    transform-origin: 50% 80%;
+  }
+  @keyframes bob { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-8px) } }
+  @keyframes sway { 0%,100%{ rotate: -4deg } 50%{ rotate: 4deg } }
+
+  /* 글래스 카드 + 네온 가사 */
+  .glass{
+    position:absolute; left:50%; bottom:8%;
+    transform: translateX(-50%);
+    width:min(900px, 92vw);
+    padding:20px 22px;
+    border-radius:16px;
+    background: rgb(255 255 255 / 7%);
+    backdrop-filter: blur(12px) saturate(120%);
+    -webkit-backdrop-filter: blur(12px) saturate(120%);
+    box-shadow: 0 12px 48px rgba(0,0,0,.45);
+  }
+  .lyric{
+    margin:0;
+    font-size: clamp(20px, 5.5vw, 34px);
+    line-height:1.28;
+    letter-spacing:.2px;
+    color: #fff;
+    text-shadow:
+      0 0 6px #fff,
+      0 0 18px #fff,
+      0 0 30px var(--neon),
+      0 0 60px var(--neon);
+  }
+  .gradient{
+    background: linear-gradient(90deg, var(--accent), var(--neon) 55%, #86ffd6);
+    -webkit-background-clip: text; background-clip:text; color:transparent;
+  }
+  /* 진행 바 */
+  .progress{ height:4px; width:100%; background: rgb(255 255 255 / 18%); border-radius:3px; overflow:hidden; margin-top:12px; }
+  .progress > i{ display:block; height:100%; width:0%; background: linear-gradient(90deg, var(--accent), var(--neon) 60%, #fff); box-shadow: 0 0 12px var(--neon); }
+
+  /* 상단 컨트롤 */
+  .topbar{ position:absolute; top:10px; right:10px; left:10px; display:flex; gap:8px; align-items:center; }
+  audio{ width:100%; accent-color: var(--accent); }
+
+  /* 안전 여백 (노치 대응) */
+  .safe{ padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+
+  /* 타입 효과 (간단) */
+  .cursor::after{ content:""; display:inline-block; width:1ch; margin-left:2px; background: currentColor; height:1.1em; transform: translateY(.15em); animation: blink 1s steps(1) infinite; opacity:.9; }
+  @keyframes blink { 50%{ opacity:.15 } }
+</style>
+
+<div class="stage">
+  <div class="topbar">
+    <audio id="player" controls></audio>
+  </div>
+
+  <div class="santa" aria-hidden="true">🎅</div>
+
+  <div class="glass safe" role="group" aria-label="Lyrics panel">
+    <h2 id="lyric" class="lyric gradient cursor">Tap to load…</h2>
+    <div class="progress"><i id="bar"></i></div>
+  </div>
+</div>
+
+<script>
+  // 사용자가 올린 오디오 파일명 (같은 폴더에 두세요)
+  const AUDIO_FILE = "song.mp3"; // 예: santa_tell_me.mp3 → 이 변수만 바꾸면 됩니다.
+  const audio = document.getElementById('player');
+  const lyricEl = document.getElementById('lyric');
+  const barEl = document.getElementById('bar');
+
+  // LRC 파서 (HTML에 인라인된 <script type="text/plain" id="lrc">에서 읽기)
+  function parseLRC(text){
+    const tag = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g;
+    const arr = [];
+    for (const raw of text.split(/\r?\n/)){
+      const matches = [...raw.matchAll(tag)];
+      if (!matches.length) continue;
+      const line = raw.slice(matches.at(-1).index + matches.at(-1)[0].length).trim();
+      for (const m of matches){
+        const mm = +m[1], ss = +m[2], frac = (m[3]||'0');
+        const ms = (mm*60+ss)*1000 + +(frac.padEnd(3,'0'));
+        arr.push([ms, line]);
+      }
+    }
+    return arr.sort((a,b)=>a[0]-b[0]);
+  }
+
+  // 간단 타자 효과
+  let typingTimer = null;
+  function typeLine(text){
+    if (typingTimer) clearInterval(typingTimer);
+    const chars = [...text];
+    let i = 0;
+    lyricEl.textContent = "";
+    typingTimer = setInterval(()=>{
+      lyricEl.textContent += chars[i++] || "";
+      if (i >= chars.length) clearInterval(typingTimer);
+    }, Math.max(12, 1000 / Math.max(12, chars.length)));
+  }
+
+  // 동기화 루프
+  let timeline = [], idx = 0;
+  function tick(){
+    requestAnimationFrame(tick);
+    if (!timeline.length || isNaN(audio.duration)) return;
+    const pos = audio.currentTime * 1000;
+    while (idx + 1 < timeline.length && pos >= timeline[idx+1][0]) idx++;
+    const [t, line] = timeline[idx] || [0,""];
+    // 라인 변경 시 타자 효과
+    if (lyricEl.getAttribute('data-line') !== String(idx)){
+      lyricEl.setAttribute('data-line', String(idx));
+      typeLine(line || " ");
+    }
+    // 진행 바 (다음 타임스탬프까지 비율)
+    const nextT = (idx + 1 < timeline.length) ? timeline[idx+1][0] : (audio.duration*1000 || t+1);
+    const pct = Math.max(0, Math.min(1, (pos - t) / Math.max(1, nextT - t)));
+    barEl.style.width = (pct * 100).toFixed(2) + '%';
+  }
+
+  // 초기화
+  audio.src = AUDIO_FILE;
+  // 모바일 자동재생 제한 대비: 첫 사용자 제스처 이후 재생 가능
+  addEventListener('click', ()=>{
+    if (audio.paused && audio.src) audio.play().catch(()=>{});
+  }, { once:true });
+
+  // LRC 로드 (내장 스크립트에서)
+  const embedded = document.getElementById('lrc');
+  timeline = parseLRC(embedded ? embedded.textContent : "");
+  tick();
+</script>
+
+<!-- 여기에 본인의 LRC를 붙여넣으세요 (예시는 포맷만, 실제 가사는 직접 준비) -->
+<script id="lrc" type="text/plain">
+[id: pshzibvw]
+[ar: Ariana Grande]
+[al: Santa Tell Me - Single]
+[ti: Ariana Grande - Santa Tell Me]
+[by: ig:@eriksn.egr]
+
+[re: LRC Editor - Android app]
+[ve: Version 3.2.6]
+
+[00:00.00]
+[00:11.08]Santa, tell me if you're really there
+[00:14.83]Don't make me fall in love again
+[00:17.56]If he won't be here next year
+[00:20.82]Santa, tell me if he really cares
+[00:24.84]'Cause I can't give it all away
+[00:27.47]If he won't be here next year
+[00:31.19]Feeling Christmas all around
+[00:33.75]And I'm trying to play it cool
+[00:36.29]But it's hard to focus when I see him walkin' 'cross the room
+[00:41.41]"Let it Snow" is blasting out
+[00:43.66]But I won't get in the mood
+[00:46.28]I'm avoiding every mistletoe until I know
+[00:50.35]It's true love that he thinks of
+[00:54.45]So next Christmas
+[00:56.82]I'm not all alone, boy
+[01:01.09]Santa, tell me if you're really there
+[01:04.97]Don't make me fall in love again
+[01:07.52]If he won't be here next year
+[01:10.79]Santa, tell me if he really cares
+[01:14.91]'Cause I can't give it all away
+[01:17.89]If he won't be here next year
+[01:21.27]I've been down this road before
+[01:23.76]Fell in love on Christmas night (ooh, babe)
+[01:26.31]But on New Year's Day, I woke up and he wasn't by my side
+[01:31.27]Now I need someone to hold
+[01:33.79]Be my fire in the cold (yeah, yeah)
+[01:36.36]But it's hard to tell if this is just a fling
+[01:39.54]Or if it's true love that he thinks of (of)
+[01:44.47]So next Christmas
+[01:46.96]I'm not all alone, babe
+[01:50.53]Santa, tell me if you're really there
+[01:55.10]Don't make me fall in love again
+[01:57.50]If he won't be here next year
+[02:01.07]Santa, tell me if he really cares
+[02:05.04]'Cause I can't give it all away
+[02:07.48]If he won't be here next year
+[02:12.46]Oh, I wanna have him beside me like oh-oh-oh
+[02:17.20]On the 25th by the fire place, oh-oh-oh
+[02:21.90]But I don't want a new broken heart
+[02:25.56]This year I've got to be smart
+[02:29.81]Ooh, baby
+[02:30.95](Santa, tell me, Santa, tell me)
+[02:34.34]If he will be, if he will be
+[02:36.81](Santa, tell me, Santa, tell me)
+[02:38.96]Oh-oh-oh
+[02:41.22]Santa, tell me if you're really there (Santa, tell me, 'cause I really care)
+[02:44.99]Don't make me fall in love again
+[02:47.55]If he won't be here next year
+[02:50.99]Santa, tell me if he really cares (tell me, tell me, boy)
+[02:54.96]'Cause I can't give it all away
+[02:57.72]If he won't be here next year
+[03:01.27]Santa, tell me if you're really there (tell me, tell me, baby)
+[03:05.06]Don't make me fall in love again
+[03:07.73]If he won't be here next year (if he won't be, if he won't be here)
+[03:11.05]Santa, tell me if he really cares (tell me, do you care?)
+[03:14.96]'Cause I can't give it all away
+[03:17.46]If he won't be here next year
+</script>
