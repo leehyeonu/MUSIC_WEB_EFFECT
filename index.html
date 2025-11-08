@@ -1,23 +1,86 @@
 <!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Lyric Sync – Santa Tell Me</title>
+<title>Lyric Sync – Mobile</title>
 <style>
-  :root{ --bg:#07070b; --fg:#eef4ff; --neon:#00f5ff; --accent:#6aa8ff; }
-  html,body{height:100%; margin:0; background: radial-gradient(60% 80% at 50% 20%, #0f1320 0%, #090b12 55%, #07070b 100%); color:var(--fg); font-family: Inter, Pretendard, system-ui, -apple-system, Segoe UI, Roboto;}
-  .stage{position:relative; height:100%; overflow:hidden;}
-  .topbar{position:absolute; inset:0 0 auto 0; padding: max(12px, env(safe-area-inset-top)) 16px 12px; background: linear-gradient(180deg, rgba(7,7,11,.85) 0%, rgba(7,7,11,0) 100%); z-index:10;}
+  :root{
+    --bg:#07070b; --fg:#eef4ff; --neon:#00f5ff; --accent:#6aa8ff;
+    --santa-lane: clamp(90px, 20vw, 150px); /* 산타가 차지하는 좌측 여백 */
+  }
+  html,body{
+    height:100%; margin:0;
+    background: radial-gradient(60% 80% at 50% 20%, #0f1320 0%, #090b12 55%, #07070b 100%);
+    color:var(--fg);
+    font-family: Inter, Pretendard, system-ui, -apple-system, Segoe UI, Roboto;
+  }
+  .stage{ position:relative; height:100%; overflow:hidden; }
+
+  /* 상단 컨트롤 */
+  .topbar{
+    position:absolute; inset:0 0 auto 0;
+    padding: max(12px, env(safe-area-inset-top)) 16px 12px;
+    background: linear-gradient(180deg, rgba(7,7,11,.85) 0%, rgba(7,7,11,0) 100%);
+    z-index: 10;
+  }
   audio{ width:100%; accent-color: var(--accent); height:32px; }
-  .santa{ position:absolute; left:10px; bottom:18%; font-size: clamp(100px, 20vw, 180px); line-height:1; filter: drop-shadow(0 6px 18px rgba(255,0,64,.35)) drop-shadow(0 0 24px rgba(255,0,64,.25)); animation: bob 2.2s ease-in-out infinite, sway 4.8s ease-in-out infinite; transform-origin: 50% 80%; }
-  @keyframes bob { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-12px) } }
-  @keyframes sway { 0%,100%{ rotate:-5deg } 50%{ rotate:5deg } }
-  .glass{ position:absolute; left:50%; bottom:6%; transform:translateX(-50%); width:min(96vw, 960px); padding:26px 28px; border-radius:16px; background: rgb(255 255 255 / 7%); backdrop-filter: blur(12px) saturate(120%); -webkit-backdrop-filter: blur(12px) saturate(120%); box-shadow: 0 12px 48px rgba(0,0,0,.45); margin-bottom:max(6px, env(safe-area-inset-bottom)); }
-  .lyric{ margin:0; font-size: clamp(30px, 8vw, 48px); font-weight:700; line-height:1.28; letter-spacing:.3px; color:#fff; text-shadow: 0 0 10px #fff, 0 0 24px #fff, 0 0 40px var(--neon), 0 0 80px var(--neon); min-height:1.9em; }
-  .gradient{ background: linear-gradient(90deg, var(--accent), var(--neon) 55%, #86ffd6); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+  /* 산타: 좌하단 전용 레인 안에서 바운스 */
+  .santa{
+    position:absolute; left: max(10px, env(safe-area-inset-left)); bottom: 8%;
+    width: var(--santa-lane); height: var(--santa-lane);
+    display:flex; align-items:flex-end; justify-content:center;
+    font-size: clamp(80px, 18vw, 160px); line-height:1;
+    filter: drop-shadow(0 6px 18px rgba(255,0,64,.35)) drop-shadow(0 0 24px rgba(255,0,64,.25));
+    animation: bob 2.2s ease-in-out infinite, sway 4.8s ease-in-out infinite;
+    transform-origin: 50% 80%;
+    z-index: 0; /* 카드 뒤쪽에 둬서 자연스러운 파묻힘 느낌 */
+    pointer-events: none;
+  }
+  @keyframes bob { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-10px) } }
+  @keyframes sway { 0%,100%{ rotate:-4deg } 50%{ rotate:4deg } }
+
+  /* 가사 카드: 좌측 패딩으로 산타 레인만큼 비워 겹침 방지 */
+  .glass{
+    position:absolute; left:50%; bottom:6%;
+    transform: translateX(-50%);
+    width: min(96vw, 960px);
+    padding: 22px 22px 22px calc(24px + var(--santa-lane));
+    border-radius:16px;
+    background: rgb(255 255 255 / 7%);
+    backdrop-filter: blur(12px) saturate(120%);
+    -webkit-backdrop-filter: blur(12px) saturate(120%);
+    box-shadow: 0 12px 48px rgba(0,0,0,.45);
+    margin-bottom: max(6px, env(safe-area-inset-bottom));
+    z-index: 1;
+  }
+
+  .lyric{
+    margin:0;
+    font-size: clamp(28px, 7.5vw, 44px);
+    font-weight:700;
+    line-height:1.3;
+    letter-spacing:.2px;
+    text-align:left;
+    color:#fff;
+    text-shadow: 0 0 8px #fff, 0 0 22px #fff, 0 0 36px var(--neon), 0 0 72px var(--neon);
+    min-height: 2.1em;
+    overflow-wrap: anywhere; /* 긴 영어 줄도 자연스레 줄바꿈 */
+  }
+  .gradient{
+    background: linear-gradient(90deg, var(--accent), var(--neon) 55%, #86ffd6);
+    -webkit-background-clip: text; background-clip:text; color:transparent;
+  }
   .progress{ height:6px; width:100%; background: rgb(255 255 255 / 18%); border-radius:3px; overflow:hidden; margin-top:14px; }
   .progress > i{ display:block; height:100%; width:0%; background: linear-gradient(90deg, var(--accent), var(--neon) 60%, #fff); box-shadow: 0 0 12px var(--neon); transition: width .1s linear; }
+
   .cursor::after{ content:""; display:inline-block; width:2px; margin-left:4px; background: currentColor; height:1em; animation: blink .7s steps(1) infinite; opacity:.8; }
   @keyframes blink { 50%{ opacity:.2 } }
+
+  /* 모션 최소화 선호 시 애니메이션 비활성 */
+  @media (prefers-reduced-motion: reduce){
+    .santa{ animation: none; }
+    .progress > i{ transition: none; }
+  }
 </style>
 
 <div class="stage">
@@ -31,7 +94,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const AUDIO_FILE = "song.mp3";  // 파일명만 바꾸면 됩니다.
+  const AUDIO_FILE = "song.mp3"; // 파일명만 바꾸면 됩니다
   const audio = document.getElementById('player');
   const lyricEl = document.getElementById('lyric');
   const barEl = document.getElementById('bar');
@@ -39,57 +102,66 @@ document.addEventListener('DOMContentLoaded', () => {
   function parseLRC(text){
     const tag = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g;
     const out = [];
-    for (const raw of text.split(/\r?\n/)){
-      const matches = [...raw.matchAll(tag)];
-      if (!matches.length) continue;
-      const start = matches[matches.length - 1].index + matches[matches.length - 1][0].length;
+    for (const raw of text.split(/\\r?\\n/)){
+      const m = [...raw.matchAll(tag)];
+      if (!m.length) continue;
+      const start = m[m.length-1].index + m[m.length-1][0].length;
       const line = raw.slice(start).trim();
-      for (const m of matches){
-        const mm = +m[1], ss = +m[2], frac = (m[3] || '0').padEnd(3,'0');
-        out.push([(mm*60 + ss)*1000 + +frac, line]);
+      for (const t of m){
+        const mm = +t[1], ss = +t[2], frac = (t[3]||'0').padEnd(3,'0');
+        out.push([(mm*60+ss)*1000 + +frac, line]);
       }
     }
     return out.sort((a,b)=>a[0]-b[0]);
   }
 
-  function typeLine(text){
+  // 상황에 따라 타자 효과를 스킵하는 똑똑한 표시
+  function showLine(line, timeUntilNextMs){
+    const text = line || " ";
+    // 다음 줄까지 시간이 짧으면 즉시 전체 문장 표시
+    if (timeUntilNextMs < 1200 || text.length > 48){
+      lyricEl.textContent = text;
+      return;
+    }
     lyricEl.textContent = "";
-    const chars = [...(text || " ")];
+    const chars = [...text];
+    const delay = Math.max(16, Math.min(45, 900 / Math.max(10, chars.length)));
     let i = 0;
-    const delay = Math.max(18, Math.min(50, 1000 / Math.max(10, chars.length)));
-    const timer = setInterval(() => {
+    const timer = setInterval(()=>{
       lyricEl.textContent += chars[i++] || "";
       if (i >= chars.length) clearInterval(timer);
     }, delay);
   }
 
-  // 데이터 블록에서 LRC 읽기
   const lrcNode = document.getElementById('lrc');
   const timeline = lrcNode ? parseLRC(lrcNode.textContent) : [];
-  let idx = 0, lastIdx = -1, canSync = false;
+  let idx = 0, lastIdx = -1, ready = false;
 
-  // 오디오 설정 및 메타 준비 후 동기화
   audio.src = AUDIO_FILE;
-  audio.addEventListener('loadedmetadata', () => { canSync = true; }); // 길이/타임라인 사용 준비
-  // 모바일 자동재생 정책 대응: 최초 탭에서 재생
+
+  audio.addEventListener('loadedmetadata', () => { ready = true; }); // 동기화 준비
   window.addEventListener('click', () => { if (audio.paused) audio.play().catch(()=>{}); }, { once:true });
 
   function tick(){
     requestAnimationFrame(tick);
-    if (!canSync || !timeline.length || isNaN(audio.duration)) return;
+    if (!ready || !timeline.length || isNaN(audio.duration)) return;
     const pos = audio.currentTime * 1000;
-    while (idx + 1 < timeline.length && pos >= timeline[idx + 1][0]) idx++;
+    while (idx + 1 < timeline.length && pos >= timeline[idx+1][0]) idx++;
     if (lastIdx !== idx){
       lastIdx = idx;
-      typeLine(timeline[idx][1] || " ");
+      const nowT = timeline[idx][0];
+      const nextT = (idx+1<timeline.length) ? timeline[idx+1][0] : audio.duration*1000;
+      showLine(timeline[idx][1], nextT - pos);
     }
     const t = timeline[idx][0];
-    const nextT = (idx + 1 < timeline.length) ? timeline[idx+1][0] : (audio.duration*1000 || t+1000);
+    const nextT = (idx+1<timeline.length) ? timeline[idx+1][0] : (audio.duration*1000 || t+1000);
     barEl.style.width = (Math.max(0, Math.min(1, (pos - t) / Math.max(1, nextT - t))) * 100) + '%';
   }
   tick();
 });
 </script>
+
+
 
 
 <!-- 여기에 본인의 LRC를 붙여넣으세요 -->
